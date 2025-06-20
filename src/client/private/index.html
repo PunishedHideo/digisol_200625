@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard</title>
+    <link rel="stylesheet" href="index.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <input type="text" id="searchInput" class="search-box" placeholder="Searching...">
+            <div class="controls">
+                <button class="btn" id="selectAllBtn">Select all</button>
+                <button class="btn" id="deselectAllBtn">Deselect</button>
+            </div>
+            <div class="info">
+                <span>Selected: <span id="selectedCount">0</span></span>
+                <span style="margin-left: 20px;">Showed: <span id="shownCount">0</span></span>
+            </div>
+        </div>
+        
+        <table id="dataTable">
+            <thead>
+                <tr>
+                    <th class="check-col">
+                        <input type="checkbox" id="selectAllCheckbox">
+                    </th>
+                    <th class="handle-col">≡</th>
+                    <th class="id-col">ID</th>
+                    <th>Value</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody">
+            </tbody>
+        </table>
+        
+        <div id="loadingDiv" class="loading" style="display: none;">
+            Loading...
+        </div>
+    </div>
+
+    <script src="index.js"></script>
+</body>
+</html>
