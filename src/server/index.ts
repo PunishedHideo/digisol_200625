@@ -18,12 +18,13 @@ import express from 'express';
 import router from './router.js';
 // import cors from 'cors'
 import path from 'path';
+import compression from 'compression'
 
 const server = express();
 
+server.use(express.static('src/client/public'));
 server.use(express.json({ limit: '50mb' })); // ugly but fast solution
 server.use(router);
-server.use(express.static(path.resolve('src/client/public')));
 
 server.listen(3000, () => {
   console.log('Server is running on port 3000');

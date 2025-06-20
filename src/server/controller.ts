@@ -10,6 +10,7 @@ export async function DashboardController(
 }
 
 export async function ClientInfoControllerGet(req: Request, res: Response): Promise<void> {
+    // console.log(req.query.page)
     const info = await ClientInfoServiceGet();
     res.status(200).send(JSON.stringify(info))
     // get the info from client with search and selected result

@@ -25,7 +25,6 @@ function debouncedStoreData() {
 // NOTE test data - Either make an api call to backend to get data or just get it with get / route
 async function getData() {
     const response = await (await fetch(`api/client-info`)).json()
-    // console.log(response.selectedIds)
 
     allData = response.allData
     filteredData = response.filteredData || [...allData];
