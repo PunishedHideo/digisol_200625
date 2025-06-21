@@ -24,7 +24,7 @@ import router from './router.js';
 const server = express();
 
 server.use(express.static('src/client/public'));
-// server.use(express.json({ limit: '10mb' }));
+server.use(express.json({ limit: '1mb' }));
 server.use(router);
 
 server.listen(3000, () => {
