@@ -1,12 +1,15 @@
 // globals. might not be safe
 // const api = '127.0.0.1:3000/api'
 
-let allData; // TODO get all data from backend
+// TODO It will take time to get it good
+// so either way it is test so let it slide
 
-// TODO from this
-let filteredData; // array
+// NOTE These global variables were the part of unoptimized stuff and were banished from existence
+// let allData; // TODO get all data from backend
+// let filteredData; // array
+
 let displayedData; // array
-let selectedIds; // set
+let selectedIds = new Set(); // set
 let customOrder; // array
 // to this - store in the backend - and then retrieve and stuff
 let currentPage = 0; // number - default 0 but 1 after loading
@@ -23,95 +26,38 @@ function debouncedStoreData() {
 }
 
 // NOTE test data - Either make an api call to backend to get data or just get it with get / route
-async function getData() {
-    const response = await (await fetch(`api/client-info`)).json()
-
-    allData = response.allData
-    filteredData = response.filteredData || [...allData];
-    displayedData = response.displayedData || []
-    selectedIds = new Set(response.selectedIds || response.selectedIdsArray || [])
-    customOrder = response.customOrder || []
-    
-    console.log('Loading status check:', {
-        allData: allData?.length,
-        filteredData: filteredData?.length,
-        displayedData: displayedData?.length,
-        selectedIds: selectedIds?.size,
-        customOrder: customOrder?.length
+async function getData(page = 0, pageSize = 20) {
+    const params = new URLSearchParams({
+        page: page,
+        pageSize: pageSize,
+        search: searchQuery,
+        order: JSON.stringify(customOrder || [])
     });
+    const response = await (await fetch(`api/client-info?${params.toString()}`)).json();
+    if (page === 0) {
+        selectedIds = new Set(response.selectedIds || []);
+        customOrder = response.customOrder || [];
+        // Восстанавливаем searchQuery из ответа сервера
+        if (typeof response.searchQuery === 'string') {
+            searchQuery = response.searchQuery;
+        }
+    }
+    return response;
 }
 
 async function storeData() {
-    const selectedIdsArray = Array.from(selectedIds)
-
-    const request = await fetch('api/client-info', {
-    method: 'POST',
-    headers: {
-        'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-        filteredData,
-        displayedData,
-        selectedIdsArray,
-        customOrder
-    })
-});
-}
-
-function filterData() {
-    if (!searchQuery.trim()) {
-        filteredData = [...allData];
-    } else {
-        const query = searchQuery.toLowerCase().trim();
-        filteredData = allData.filter(item => 
-            item.value.toLowerCase().includes(query) || 
-            item.id.toString().includes(query)
-        );
-    }
-    
-    if (customOrder.length > 0) { // custom sorting
-        const orderMap = {};
-        customOrder.forEach((id, index) => {
-            orderMap[id] = index;
-        });
-        
-        filteredData.sort((a, b) => {
-            const aOrder = orderMap[a.id] !== undefined ? orderMap[a.id] : Infinity;
-            const bOrder = orderMap[b.id] !== undefined ? orderMap[b.id] : Infinity;
-            if (aOrder === bOrder) {
-                return a.id - b.id;
-            }
-            return aOrder - bOrder;
-        });
-    }
-}
-
-function loadMoreData() { // scrolling data loader
-    if (isLoading) return;
-    
-    const startIndex = currentPage * 20;
-    if (startIndex >= filteredData.length) return;
-    
-    isLoading = true;
-    showLoading(true);
-    
-    setTimeout(() => {
-        const endIndex = Math.min(startIndex + 20, filteredData.length);
-        const newItems = filteredData.slice(startIndex, endIndex);
-        
-        if (currentPage === 0) {
-            displayedData = [...newItems];
-        } else {
-            displayedData = [...displayedData, ...newItems];
-        }
-        
-        renderTable();
-        currentPage++;
-        isLoading = false;
-        showLoading(false);
-        
-        debouncedStoreData();
-    }, 200);
+    await fetch('api/client-info', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            selectedIds: Array.from(selectedIds),
+            customOrder,
+            searchQuery,
+            currentPage,
+        })
+    });
 }
 
 function showLoading(show) {
@@ -120,7 +66,7 @@ function showLoading(show) {
         loadingDiv.textContent = 'Loading...';
         loadingDiv.style.display = 'block';
     } else {
-        if (displayedData.length >= filteredData.length) {
+        if (displayedData.length >= totalCount) {
             loadingDiv.textContent = 'All Data Loaded!';
             loadingDiv.style.display = 'block';
         } else {
@@ -143,6 +89,7 @@ function renderTable() { // shows the api output
             row.classList.add('selected');
         }
         
+        // NOTE not sure if this is safe
         row.innerHTML = `
             <td class="check-col">
                 <input type="checkbox" class="checkbox" ${selectedIds.has(item.id) ? 'checked' : ''}>
@@ -166,8 +113,10 @@ function renderTable() { // shows the api output
         tbody.appendChild(row);
     });
     
-    if (displayedData.length < filteredData.length && !isLoading) {
+    if (displayedData.length < totalCount && !isLoading) {
         const loadMoreRow = document.createElement('tr');
+
+        // NOTE not sure if this is safe either
         loadMoreRow.innerHTML = `
             <td colspan="4" class="load-more-row">
                 <button class="load-more-btn">Загрузить еще</button>
@@ -215,7 +164,7 @@ function toggleSelect(id) {
     debouncedStoreData();
 }
 
-function selectAll() {
+function selectAll() { // select all button responsible
     displayedData.forEach(item => {
         selectedIds.add(item.id);
     });
@@ -223,7 +172,7 @@ function selectAll() {
     debouncedStoreData();
 }
 
-function deselectAll() {
+function deselectAll() { // deselect button responsible
     displayedData.forEach(item => {
         selectedIds.delete(item.id);
     });
@@ -231,7 +180,7 @@ function deselectAll() {
     debouncedStoreData();
 }
 
-function toggleSelectAll() {
+function toggleSelectAll() { // select all checkbox
     const checkbox = document.getElementById('selectAllCheckbox');
     if (checkbox.checked) {
         selectAll();
@@ -242,6 +191,7 @@ function toggleSelectAll() {
 
 let draggedElement = null;
 
+// NOTE D&D STUFF BEGINGS. voodoo to be honest, idk how it works
 function handleDragStart(e) {
     draggedElement = this;
     this.classList.add('dragging');
@@ -294,14 +244,16 @@ function handleDragEnd(e) {
 function handleSearch() {
     const newQuery = document.getElementById('searchInput').value;
     if (newQuery === searchQuery) return;
-    
+
     searchQuery = newQuery;
     currentPage = 0;
     displayedData = [];
-    filterData();
+    totalCount = 0;
+    isLoading = false;
     loadMoreData();
     debouncedStoreData();
 }
+// d&d STUFF END
 
 function resetData() {
     currentPage = 0;
@@ -309,57 +261,73 @@ function resetData() {
     isLoading = false;
 }
 
-async function init() { // NOTE initializes before rendering the table
-    // this thing right here is like what will happen if the program just recieved first get request for /
-    // but I guess it is not really necessary because backend does the same thing iirc
-    await getData();
-    
-    // NOTE searchbar restorer(not working right now I suppose)
-    document.getElementById('searchInput').value = searchQuery;
-    
-    if (displayedData.length > 0) {
-        displayedData = displayedData.slice(0, 20);
-        currentPage = 1;
-        
-        renderTable();
-        showLoading(false);
-    } else {
-        // no data saved - normal loading smth smth
-        filterData();
-        loadMoreData();
-    }
-    
+let totalCount = 0; // not sure if safe keeping it global but idk it is convenient
+
+async function loadMoreData() { // NOTE loads data for each page from the backend
+    if (isLoading) return;
+
+    isLoading = true;
+    showLoading(true);
+
+    const response = await getData(currentPage, 20);
+    const newItems = response.pageData;
+
+    const existingIds = new Set(displayedData.map(item => item.id));
+    const uniqueNewItems = newItems.filter(item => !existingIds.has(item.id));
+
+    displayedData = [...displayedData, ...uniqueNewItems];
+    totalCount = response.total;
+
+    renderTable();
+    currentPage++;
+    isLoading = false;
+    showLoading(false);
+}
+
+async function init() {
+    displayedData = [];
+    currentPage = 0;
+    isLoading = false;
+    totalCount = 0;
+
+    // lazy loads the FIRST page from the backend
+    const response = await getData(0, 20);
     const searchInput = document.getElementById('searchInput');
+    searchInput.value = searchQuery;
+
+    // adds the retrivied first page data to the displayed data
+    displayedData = response.pageData || [];
+    totalCount = response.total || 0;
+    renderTable();
+
     let searchTimeout;
     searchInput.addEventListener('input', () => {
         clearTimeout(searchTimeout);
         searchTimeout = setTimeout(handleSearch, 300);
     });
-    
+
     document.getElementById('selectAllBtn').addEventListener('click', selectAll);
     document.getElementById('deselectAllBtn').addEventListener('click', deselectAll);
     document.getElementById('selectAllCheckbox').addEventListener('change', toggleSelectAll);
-    
+
     let scrollTimeout;
     window.addEventListener('scroll', () => {
         clearTimeout(scrollTimeout);
         scrollTimeout = setTimeout(() => {
             if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 1000) {
-                if (displayedData.length < filteredData.length && !isLoading) {
+                if (!isLoading && displayedData.length < totalCount) {
                     loadMoreData();
                 }
             }
         }, 100);
     });
-    
+
     window.addEventListener('beforeunload', () => {
-        navigator.sendBeacon('api/client-info', JSON.stringify({
-            filteredData,
-            displayedData,
-            selectedIdsArray: Array.from(selectedIds),
+        navigator.sendBeacon('api/client-info', JSON.stringify({ // NO CLUE WHAT THIS DOES!
+            selectedIds: Array.from(selectedIds),
             customOrder,
+            searchQuery,
             currentPage,
-            searchQuery
         }));
     });
 }

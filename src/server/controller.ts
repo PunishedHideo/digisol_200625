@@ -6,19 +6,35 @@ export async function DashboardController(
   req: Request,
   res: Response,
 ): Promise<void> {
-  res.status(200).sendFile(path.resolve('src/client/private/index.html')); // make paths
+  if (req) {
+    res.status(200).sendFile(path.resolve('src/client/private/index.html'));
+  }
 }
 
-export async function ClientInfoControllerGet(req: Request, res: Response): Promise<void> {
-    // console.log(req.query.page)
-    const info = await ClientInfoServiceGet();
-    res.status(200).send(JSON.stringify(info))
-    // get the info from client with search and selected result
+export async function ClientInfoControllerGet(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  if (req) {
+    const page = parseInt(req.query.page as string) || 0;
+    const pageSize = parseInt(req.query.pageSize as string) || 20;
+    const search = req.query.search || '';
+
+    let order: number[] = [];
+    if (req.query.order) {
+      order = JSON.parse(req.query.order as string);
+    }
+    const info = await ClientInfoServiceGet(page, pageSize, search, order);
+    res.status(200).json(info);
+  }
 }
 
-export async function ClientInfoControllerPost(req: Request, res: Response): Promise<void> {
-    // console.log(req.body.selectedIds)
-    const result = await ClientInfoServicePost(req.body.filteredData, req.body.displayedData, req.body.selectedIdsArray, req.body.customOrder);
-    res.status(200).send(JSON.stringify(result))
-    // get the info from client with search and selected result
+export async function ClientInfoControllerPost(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  if (req) {
+    const result = await ClientInfoServicePost(req.body);
+    res.status(200).json(result);
+  }
 }
